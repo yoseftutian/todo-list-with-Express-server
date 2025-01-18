@@ -1,9 +1,23 @@
 const express = require("express");
 const router = express.Router();
 const Task = require("../models/Task");
+const jwt = require("jsonwebtoken");
+
+
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) return res.status(401).json({ message: "Unauthorized" });
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ message: "Forbidden" });
+    req.user = user;
+    next();
+  });
+}
 
 // Create a new task (POST /tasks)
-router.post("/", async (req, res) => {
+router.post("/", authenticateToken, async (req, res) => {
   const task = new Task({
     title: req.body.title,
   });
@@ -16,7 +30,7 @@ router.post("/", async (req, res) => {
 });
 
 // Get all tasks (GET /tasks)
-router.get("/", async (req, res) => {
+router.get("/", authenticateToken, async (req, res) => {
   try {
     const tasks = await Task.find();
     res.json(tasks);
@@ -26,7 +40,7 @@ router.get("/", async (req, res) => {
 });
 
 // Update task status (PUT /tasks/:id)
-router.put("/:id", async (req, res) => {
+router.put("/:id", authenticateToken, async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
     if (task == null) {
@@ -41,7 +55,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // Delete a task (DELETE /tasks/:id)
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", authenticateToken, async (req, res) => {
   try {
     const task = await Task.findByIdAndDelete(req.params.id);
     if (!task) {
