@@ -2,23 +2,25 @@ const mongoose = require("mongoose");
 
 const taskSchema = new mongoose.Schema(
   {
-    title: {
-      type: String,
-      required: true,
-    },
-    completed: {
-      type: Boolean,
-      default: false,
-    },
+    title: { type: String, required: true },
+    completed: { type: Boolean, default: false },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
+    recurring: {
+      type: Boolean,
+      default: false,
+    },
+    frequency: {
+      type: String,
+      enum: ["daily", "weekly", "monthly"],
+      default: "weekly",
+    },
+    nextDueDate: Date,
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 // Query Middleware

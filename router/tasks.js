@@ -36,24 +36,37 @@ function authenticateToken(req, res, next) {
   }
 }
 
+// Helper function to calculate next due date
+function getNextDueDate(frequency) {
+  const now = new Date();
+  switch (frequency) {
+    case "daily":
+      return new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    case "weekly":
+      return new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    case "monthly":
+      return new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    default:
+      return now;
+  }
+}
+
 // Create a new task
 router.post("/", authenticateToken, async (req, res) => {
   try {
-    if (!req.user || !req.user.id) {
-      return res.status(400).json({ message: "User ID is missing" });
-    }
+    const { title, recurring, frequency } = req.body;
 
     const task = new Task({
-      title: req.body.title,
+      title,
       userId: req.user.id,
+      recurring,
+      frequency,
+      nextDueDate: recurring ? getNextDueDate(frequency) : null,
     });
-
     const savedTask = await task.save();
-
     await User.findByIdAndUpdate(req.user.id, {
       $push: { tasks: savedTask._id },
     });
-
     res.status(201).json(savedTask);
   } catch (err) {
     console.error("Error creating task:", err);
@@ -62,9 +75,10 @@ router.post("/", authenticateToken, async (req, res) => {
 });
 
 // Get all tasks
+
 router.get("/", authenticateToken, async (req, res) => {
   try {
-    const tasks = await Task.find().setOptions({ user: req.user });
+    const tasks = await Task.find({ userId: req.user.id });
     res.json(tasks);
   } catch (err) {
     console.error("Error fetching tasks:", err);
@@ -73,16 +87,22 @@ router.get("/", authenticateToken, async (req, res) => {
 });
 
 // Update task
+
 router.put("/:id", authenticateToken, async (req, res) => {
   try {
     const task = await Task.findOneAndUpdate(
-      { _id: req.params.id },
+      { _id: req.params.id, userId: req.user.id },
       { completed: req.body.completed },
       { new: true, user: req.user }
     );
 
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
+    }
+
+    if (task.recurring) {
+      task.nextDueDate = getNextDueDate(task.frequency);
+      await task.save();
     }
 
     res.json(task);
