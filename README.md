@@ -87,7 +87,7 @@ This project is a task management API built with Node.js, Express.js, and MongoD
 - **GET** `/tasks` - Retrieve all tasks (requires JWT).
 - **PUT** `/tasks/:id` - Update a task (requires JWT).
 - **DELETE** `/tasks/:id` - Delete a task (requires JWT).
-- **POST** `/tasks/:id/share` - Share task
+- **POST** `/tasks/:id/share` - Share task (requires JWT).
 
 
 
