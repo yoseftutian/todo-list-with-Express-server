@@ -74,11 +74,55 @@ router.post("/", authenticateToken, async (req, res) => {
   }
 });
 
-// Get all tasks
+router.post("/:id/share", authenticateToken, async (req, res) => {
+  try {
+    const { userIdToShare } = req.body;
 
+    const task = await Task.findOne({
+      _id: req.params.id,
+      userId: req.user.id,
+    });
+
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
+    }
+
+    if (task.sharedWith.includes(userIdToShare)) {
+      return res
+        .status(400)
+        .json({ message: "Task already shared with this user" });
+    }
+
+    task.sharedWith.push(userIdToShare);
+    await task.save();
+
+    const sharedUser = await User.findById(userIdToShare);
+    if (!sharedUser) {
+      return res.status(404).json({ message: "User to share with not found" });
+    }
+
+    if (!sharedUser.tasks.includes(task._id)) {
+      sharedUser.tasks.push(task._id);
+      await sharedUser.save();
+    }
+
+    res.json({ message: "Task shared successfully", task });
+  } catch (err) {
+    console.error("Error sharing task:", err);
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// Get all tasks for a user (owned or shared)
 router.get("/", authenticateToken, async (req, res) => {
   try {
-    const tasks = await Task.find({ userId: req.user.id });
+    const tasks = await Task.find({
+      $or: [
+        { userId: req.user.id }, 
+        { sharedWith: req.user.id }, 
+      ],
+    });
+
     res.json(tasks);
   } catch (err) {
     console.error("Error fetching tasks:", err);
@@ -86,48 +130,86 @@ router.get("/", authenticateToken, async (req, res) => {
   }
 });
 
-// Update task
-
-router.put("/:id", authenticateToken, async (req, res) => {
+// Get a specific task by ID (owned or shared)
+router.get("/:id", authenticateToken, async (req, res) => {
   try {
-    const task = await Task.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user.id },
-      { completed: req.body.completed },
-      { new: true, user: req.user }
-    );
+    const task = await Task.findOne({
+      _id: req.params.id,
+      $or: [
+        { userId: req.user.id }, 
+        { sharedWith: req.user.id }, 
+      ],
+    });
 
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    if (task.recurring) {
-      task.nextDueDate = getNextDueDate(task.frequency);
-      await task.save();
+    res.json(task);
+  } catch (err) {
+    console.error("Error fetching task:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Update a task (owned or shared)
+router.put("/:id", authenticateToken, async (req, res) => {
+  try {
+    const task = await Task.findOne({
+      _id: req.params.id,
+      $or: [
+        { userId: req.user.id }, 
+        { sharedWith: req.user.id }, 
+      ],
+    });
+
+    if (!task) {
+      return res.status(404).json({ message: "Task not found" });
     }
 
-    res.json(task);
+    task.completed = req.body.completed;
+
+    if (task.recurring) {
+      task.nextDueDate = getNextDueDate(task.frequency);
+    }
+
+    const updatedTask = await task.save();
+    res.json(updatedTask);
   } catch (err) {
     console.error("Error updating task:", err);
     res.status(400).json({ message: err.message });
   }
 });
 
-// Delete task
+// Delete a task (owned or shared)
 router.delete("/:id", authenticateToken, async (req, res) => {
   try {
-    const task = await Task.findOneAndDelete({ _id: req.params.id }).setOptions(
-      { user: req.user }
-    );
+    const task = await Task.findOne({
+      _id: req.params.id,
+      $or: [
+        { userId: req.user.id }, 
+        { sharedWith: req.user.id }, 
+      ],
+    });
 
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }
 
-    await User.findByIdAndUpdate(req.user.id, {
-      $pull: { tasks: req.params.id },
-    });
+    if (task.userId.toString() === req.user.id) {
+      await Task.findByIdAndDelete(req.params.id);
 
-    res.json({ message: "Task deleted" });
+      await User.findByIdAndUpdate(req.user.id, {
+        $pull: { tasks: req.params.id },
+      });
+      res.json({ message: "Task deleted" });
+    } else {
+      task.sharedWith = task.sharedWith.filter(
+        (userId) => userId.toString() !== req.user.id
+      );
+      await task.save();
+      res.json({ message: "Task unshared for the user" });
+    }
   } catch (err) {
     console.error("Error deleting task:", err);
     res.status(500).json({ message: err.message });

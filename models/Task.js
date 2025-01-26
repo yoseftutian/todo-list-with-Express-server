@@ -19,6 +19,7 @@ const taskSchema = new mongoose.Schema(
       default: "weekly",
     },
     nextDueDate: Date,
+    sharedWith: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Array of user IDs
   },
   { timestamps: true }
 );
