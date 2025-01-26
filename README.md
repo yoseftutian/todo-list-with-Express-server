@@ -8,6 +8,7 @@ This project is a task management API built with Node.js, Express.js, and MongoD
 - User registration and login.
 - Secure JWT-based authentication.
 - Task CRUD operations (Create, Read, Update, Delete).
+- Task sharing between users
 - Rate limiting to mitigate abuse.
 
 ---
@@ -86,6 +87,9 @@ This project is a task management API built with Node.js, Express.js, and MongoD
 - **GET** `/tasks` - Retrieve all tasks (requires JWT).
 - **PUT** `/tasks/:id` - Update a task (requires JWT).
 - **DELETE** `/tasks/:id` - Delete a task (requires JWT).
+- **POST** `/tasks/:id/share` - Share task (requires JWT).
+
+
 
 ---
 
