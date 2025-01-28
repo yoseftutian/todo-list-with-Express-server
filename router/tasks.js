@@ -4,6 +4,7 @@ const Task = require("../models/Task");
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 
+// Verify JWT token middleware
 function authenticateToken(req, res, next) {
   try {
     const authHeader = req.headers["authorization"];
@@ -74,6 +75,7 @@ router.post("/", authenticateToken, async (req, res) => {
   }
 });
 
+// Share task with another user
 router.post("/:id/share", authenticateToken, async (req, res) => {
   try {
     const { userIdToShare } = req.body;
